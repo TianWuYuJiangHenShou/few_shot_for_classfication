@@ -82,7 +82,7 @@ class JSONFileDataLoader(FileDataLoader):
         self.word2id['UNK'] = self.word_vec.vectors.shape[0]
         self.word2id['BLANK'] = self.word_vec.vectors.shape[0] + 1
 
-    #test hahahaha
+
     def load_weight(self):
         pass
 
