@@ -19,7 +19,9 @@ class FileDataLoader:
         raise NotImplementedError
 
 class JSONFileDataLoader(FileDataLoader):
+
     def __init__(self,path,word_vec_file_name,max_length = 15,cuda = False):
+        self.max_length = max_length
         file_lists = self.get_file_path(path)
         self.features = self.load_all_data(file_lists)
         self.train_features, self.test_features = self.few_shot_feature(self.features)
@@ -29,7 +31,6 @@ class JSONFileDataLoader(FileDataLoader):
             raise Exception("[ERROR] Word vector file doesn't exist")
         self.word_vec = gensim.models.KeyedVectors.load_word2vec_format(word_vec_file_name)
         self.word2id = self.word_dic()
-
 
     def get_file_path(self,path):
         file_lists = []
@@ -68,23 +69,35 @@ class JSONFileDataLoader(FileDataLoader):
     def regex_sen(self,sen):
         return re.sub("[\s+\.\!\/_,$%^*(+\"\']+|[+——！，。？、~@#￥%……&*（）]+",'',sen)
 
-    def dataset_gen(self,sen,features):
-        dataset,labels = [],[]
-        for key,value in features.items():
-            for item in value:
-                dataset.append(jieba.lcut(self.regex_sen(item)))
-                labels.append(key)
-        return dataset,labels
-
     def word_dic(self):
         for i in range(self.word_vec.vectors.shape[0]):
             self.word2id[self.word_vec.wv.index2word[i]] = i
         self.word2id['UNK'] = self.word_vec.vectors.shape[0]
         self.word2id['BLANK'] = self.word_vec.vectors.shape[0] + 1
 
+    def gen_dataset(self,features):
+        dataset, labels = [], []
+        pre_shuffle = []
+        for key, value in features.items():
+            for item in value:
+                pre_shuffle.append((jieba.lcut(self.regex_sen(item)),key))
+        random.shuffle(pre_shuffle)
+        for item in pre_shuffle:
+            dataset.append(item[0])
+            labels.append(item[1])
 
-    def load_weight(self):
-        pass
+        self.word_vec = np.load((self.word_vec.vectors.shape[0],self.word_vec.vectors.shape[0]+1),dtype = np.float32)
+        data_word = np.zeros(len(features,self.max_length),dtype = np.int32)
+        data_length = np.zeros(len(features))
+
+        self.rel2scope = {}
+        i = 0
+        for idx in enumerate(dataset):
+            self.rel2scope[labels]
+
+
+
+
 
 
 
