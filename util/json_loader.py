@@ -75,7 +75,7 @@ class JSONFileDataLoader(FileDataLoader):
         self.word2id['UNK'] = self.word_vec.vectors.shape[0]
         self.word2id['BLANK'] = self.word_vec.vectors.shape[0] + 1
 
-    def gen_dataset(self,features):
+    def gen_dataset(self,features,prefix = 'train'):
         dataset, labels = [], []
         pre_shuffle = []
         for key, value in features.items():
@@ -86,14 +86,39 @@ class JSONFileDataLoader(FileDataLoader):
             dataset.append(item[0])
             labels.append(item[1])
 
-        self.word_vec = np.load((self.word_vec.vectors.shape[0],self.word_vec.vectors.shape[0]+1),dtype = np.float32)
-        data_word = np.zeros(len(features,self.max_length),dtype = np.int32)
-        data_length = np.zeros(len(features))
+        self.word_vec = np.load((self.word_vec.vectors.shape[0],self.word_vec.vectors.shape[1]),dtype = np.float32)
+        self.data_word = np.zeros((len(features),self.max_length),dtype = np.int32)
+        self.data_length = np.zeros(len(features))
 
-        self.rel2scope = {}
+        self.rel2scope = {}#
         i = 0
-        for idx in enumerate(dataset):
-            self.rel2scope[labels]
+        for idx,item in enumerate(dataset):
+            # self.rel2scope[labels]
+            #padding
+            for i,value in enumerate(item):
+                if i < self.max_length:
+                    if i in self.word2id:
+                        self.data_word[idx][i] = value
+                    else:
+                        self.data_word[idx][i] = self.word_vec.vectors.shape[0]
+            for i in range(i+1,self.max_length):
+                self.data_word[idx][i] = self.word_vec.vectors.shape[0] + 1
+            self.data_length[i] = len(item)
+
+        base_path = '../data/processed_data'
+        np.save(os.path.join(base_path,prefix+'_sen.npy'),self.data_word)
+        np.save(os.path.join(base_path, prefix + '_length.npy'), self.data_length)
+
+
+    def _load_processed_file(self,prefix):
+        base_path = '../data/processed_data'
+        if not os.path.isdir(base_path):
+            False
+
+        sentence_file_name = os.path.join(base_path,prefix + '_sen.py')
+        length_file_name = os.path.join(base_path, prefix + '_sen.py')
+
+
 
 
 
