@@ -114,7 +114,7 @@ class JSONFileDataLoader(FileDataLoader):
         base_path = '../data/processed_data'
         if not os.path.isdir(base_path):
             False
-
+        #hahaha
         sentence_file_name = os.path.join(base_path,prefix + '_sen.py')
         length_file_name = os.path.join(base_path, prefix + '_sen.py')
 
