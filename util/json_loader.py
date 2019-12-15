@@ -25,12 +25,17 @@ class JSONFileDataLoader(FileDataLoader):
         file_lists = self.get_file_path(path)
         self.features = self.load_all_data(file_lists)
         self.train_features, self.test_features = self.few_shot_feature(self.features)
-        self.word2id = {}
+
         #加载词向量
         if word_vec_file_name is None or not os.path.isfile(word_vec_file_name):
             raise Exception("[ERROR] Word vector file doesn't exist")
         self.word_vec = gensim.models.KeyedVectors.load_word2vec_format(word_vec_file_name)
-        self.word2id = self.word_dic()
+        prefixs = {'train':self.train_features,'test':self.test_features}
+        for key,value in prefixs.items():
+            if not self._load_processed_file(key):
+                self.gen_dataset(value,key)
+            else:
+                self._load_processed_file(key)
 
     def get_file_path(self,path):
         file_lists = []
@@ -85,20 +90,20 @@ class JSONFileDataLoader(FileDataLoader):
         dataset, labels = [], []
         #few shot 切片
         self.rel2scope = {}
+        i = 0
         for key, value in features.items():
-
+            self.rel2scope[key] = [i,i]
             for item in value:
                 dataset.append(jieba.lcut(self.regex_sen(item)))
                 labels.append(key)
+                i += 1
+            self.rel2scope[key][1] = i
 
         self.word_vec = np.load((self.word_vec.vectors.shape[0],self.word_vec.vectors.shape[1]),dtype = np.float32)
-        self.data_word = np.zeros((len(features),self.max_length),dtype = np.int32)
-        self.data_length = np.zeros(len(features))
+        self.data_word = np.zeros((len(dataset),self.max_length),dtype = np.int32)
+        self.data_length = np.zeros(len(labels))
 
-        #
-        i = 0
         for idx,item in enumerate(dataset):
-            # self.rel2scope[labels]
             #padding
             for i,value in enumerate(item):
                 if i < self.max_length:
@@ -109,11 +114,13 @@ class JSONFileDataLoader(FileDataLoader):
             for i in range(i+1,self.max_length):
                 self.data_word[idx][i] = self.word_vec.vectors.shape[0] + 1
             self.data_length[i] = len(item)
-
+        self.word2id = {}
+        self.word_dic()
         base_path = '../data/processed_data'
         np.save(os.path.join(base_path,prefix+'_sen.npy'),self.data_word)
         np.save(os.path.join(base_path, prefix + '_length.npy'), self.data_length)
-
+        json.dump(self.rel2scope, open(os.path.join(base_path, prefix + '_rel2scope.json'), 'w'))
+        json.dump(self.word2id, open(os.path.join(base_path, 'word.json'), 'w'))
 
     def _load_processed_file(self,prefix):
         base_path = '../data/processed_data'
@@ -121,7 +128,24 @@ class JSONFileDataLoader(FileDataLoader):
             False
 
         sentence_file_name = os.path.join(base_path,prefix + '_sen.py')
-        length_file_name = os.path.join(base_path, prefix + '_sen.py')
+        length_file_name = os.path.join(base_path, prefix + '_length.py')
+        rel2scope_file_name = os.path.join(base_path,prefix + '_rel2scope.json')
+        word2id_file_name = os.path.join(base_path,'word.json')
+
+        if not os.path.exists(sentence_file_name) or \
+            not os.path.exists(length_file_name) or \
+            not os.path.exists(rel2scope_file_name) or \
+            not os.path.exists(word2id_file_name):
+            return False
+
+        self.word2id = json.load(open(word2id_file_name),'r','utf-8')
+        self.rel2scope = json.load(open(rel2scope_file_name),'r','utf-8')
+        self.data_word = np.load(sentence_file_name)
+        self.data_length = np.load(length_file_name)
+
+        return True
+
+
 
 
 
