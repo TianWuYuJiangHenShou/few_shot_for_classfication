@@ -76,21 +76,25 @@ class JSONFileDataLoader(FileDataLoader):
         self.word2id['BLANK'] = self.word_vec.vectors.shape[0] + 1
 
     def gen_dataset(self,features,prefix = 'train'):
+        '''
+        数据集不能shuffle，few-shot需要从每个class块中随机取数据块
+        :param features:
+        :param prefix:
+        :return:
+        '''
         dataset, labels = [], []
-        pre_shuffle = []
+        self.rel2scope = {}
         for key, value in features.items():
+
             for item in value:
-                pre_shuffle.append((jieba.lcut(self.regex_sen(item)),key))
-        random.shuffle(pre_shuffle)
-        for item in pre_shuffle:
-            dataset.append(item[0])
-            labels.append(item[1])
+                dataset.append(jieba.lcut(self.regex_sen(item)))
+                labels.append(key)
 
         self.word_vec = np.load((self.word_vec.vectors.shape[0],self.word_vec.vectors.shape[1]),dtype = np.float32)
         self.data_word = np.zeros((len(features),self.max_length),dtype = np.int32)
         self.data_length = np.zeros(len(features))
 
-        self.rel2scope = {}#
+        #
         i = 0
         for idx,item in enumerate(dataset):
             # self.rel2scope[labels]
@@ -114,7 +118,7 @@ class JSONFileDataLoader(FileDataLoader):
         base_path = '../data/processed_data'
         if not os.path.isdir(base_path):
             False
-        #hahaha
+
         sentence_file_name = os.path.join(base_path,prefix + '_sen.py')
         length_file_name = os.path.join(base_path, prefix + '_sen.py')
 
