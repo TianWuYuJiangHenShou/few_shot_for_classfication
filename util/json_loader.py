@@ -83,6 +83,7 @@ class JSONFileDataLoader(FileDataLoader):
         :return:
         '''
         dataset, labels = [], []
+        #few shot 切片
         self.rel2scope = {}
         for key, value in features.items():
 
