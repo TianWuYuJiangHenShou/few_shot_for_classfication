@@ -20,56 +20,25 @@ class FileDataLoader:
 
 class JSONFileDataLoader(FileDataLoader):
 
-    def __init__(self,path,word_vec_file_name,max_length = 15,cuda = False):
+    def __init__(self,path,word_vec_file_name,max_length = 30,cuda = False,prefix = 'train'):
         self.max_length = max_length
-        file_lists = self.get_file_path(path)
-        self.features = self.load_all_data(file_lists)
-        self.train_features, self.test_features = self.few_shot_feature(self.features)
+        self.prefix = prefix
+        self.features = self.load_data(path)
 
-        #加载词向量
+        #load word vector
         if word_vec_file_name is None or not os.path.isfile(word_vec_file_name):
             raise Exception("[ERROR] Word vector file doesn't exist")
         self.word_vec = gensim.models.KeyedVectors.load_word2vec_format(word_vec_file_name)
-        prefixs = {'train':self.train_features,'test':self.test_features}
-        for key,value in prefixs.items():
-            if not self._load_processed_file(key):
-                self.gen_dataset(value,key)
-            else:
-                self._load_processed_file(key)
+        #load data
+        if not self._load_processed_file(self.prefix):
+            self.gen_dataset(features=self.features, prefix = self.prefix)
+        else:
+            self._load_processed_file(self.prefix)
 
-    def get_file_path(self,path):
-        file_lists = []
-        files = os.listdir(path)
-        for file in files:
-            if not os.path.isdir(file):
-                new_path = os.path.join(path, file)
-                if os.path.isdir(new_path):
-                    for filename in os.listdir(new_path):
-                        file_path = os.path.join(new_path, filename)
-                        file_lists.append(file_path)
-        return file_lists
-
-    def load_json_data(self,filename, features):
-        with open(filename, 'r') as f:
-            data = json.load(f)
-        for examples in data['rasa_nlu_data']['common_examples']:
-            if examples['intent'] not in features:
-                features[examples['intent']] = [examples['text']]
-            else:
-                features[examples['intent']].append(examples['text'])
-
-    def load_all_data(self,filenames):
-        features = {}
-        for filename in filenames:
-            self.load_json_data(filename, features)
-        return features
-
-    def few_shot_feature(self,features):
-        few_shot_features = {}
-        few_shot_features['机票'] = features.pop('机票')
-        few_shot_features['火车'] = features.pop('火车')
-        few_shot_features['酒店'] = features.pop('酒店')
-        return features,few_shot_features
+    def load_data(self,path):
+        with open(path, 'r') as f:
+            data = json.load(f, ensure_ascii=False)
+        return data
 
     def regex_sen(self,sen):
         return re.sub("[\s+\.\!\/_,$%^*(+\"\']+|[+——！，。？、~@#￥%……&*（）]+",'',sen)
@@ -82,7 +51,7 @@ class JSONFileDataLoader(FileDataLoader):
 
     def gen_dataset(self,features,prefix = 'train'):
         '''
-        数据集不能shuffle，few-shot需要从每个class块中随机取数据块
+        can not shuffle the dataset,the method need to random sample some data of the same class
         :param features:
         :param prefix:
         :return:
@@ -126,7 +95,6 @@ class JSONFileDataLoader(FileDataLoader):
         base_path = '../data/processed_data'
         if not os.path.isdir(base_path):
             False
-
         sentence_file_name = os.path.join(base_path,prefix + '_sen.py')
         length_file_name = os.path.join(base_path, prefix + '_length.py')
         rel2scope_file_name = os.path.join(base_path,prefix + '_rel2scope.json')
