@@ -24,20 +24,22 @@ class JSONFileDataLoader(FileDataLoader):
         self.max_length = max_length
         self.prefix = prefix
         self.features = self.load_data(path)
-
         #load word vector
         if word_vec_file_name is None or not os.path.isfile(word_vec_file_name):
             raise Exception("[ERROR] Word vector file doesn't exist")
         self.word_vec = gensim.models.KeyedVectors.load_word2vec_format(word_vec_file_name)
+        self.word2id, self.id2word = {}, {}
+        self.word_dic()
         #load data
-        if not self._load_processed_file(self.prefix):
+        print('flag',self._load_processed_file(self.prefix))
+        if  self._load_processed_file(self.prefix):
             self.gen_dataset(features=self.features, prefix = self.prefix)
         else:
             self._load_processed_file(self.prefix)
 
     def load_data(self,path):
-        with open(path, 'r') as f:
-            data = json.load(f, ensure_ascii=False)
+        with open(path, 'r',encoding='utf-8') as f:
+            data = json.load(f)
         return data
 
     def regex_sen(self,sen):
@@ -46,6 +48,7 @@ class JSONFileDataLoader(FileDataLoader):
     def word_dic(self):
         for i in range(self.word_vec.vectors.shape[0]):
             self.word2id[self.word_vec.wv.index2word[i]] = i
+            self.id2word[i] = self.word_vec.wv.index2word[i]
         self.word2id['UNK'] = self.word_vec.vectors.shape[0]
         self.word2id['BLANK'] = self.word_vec.vectors.shape[0] + 1
 
@@ -56,6 +59,7 @@ class JSONFileDataLoader(FileDataLoader):
         :param prefix:
         :return:
         '''
+        print('Starting process the data')
         dataset, labels = [], []
         #few shot 切片
         self.rel2scope = {}
@@ -68,31 +72,39 @@ class JSONFileDataLoader(FileDataLoader):
                 i += 1
             self.rel2scope[key][1] = i
 
-        self.word_vec = np.load((self.word_vec.vectors.shape[0],self.word_vec.vectors.shape[1]),dtype = np.float32)
+        self.weight = np.zeros((self.word_vec.vectors.shape[0]+1,self.word_vec.vectors.shape[1]),dtype = np.float32)
         self.data_word = np.zeros((len(dataset),self.max_length),dtype = np.int32)
         self.data_length = np.zeros(len(labels))
+
+        for i in range(self.word_vec.vectors.shape[0]):
+            try:
+                index = self.word2id[self.word_vec.index2word[i]]
+            except:
+                continue
+            self.weight[index] = self.word_vec.get_vector(self.id2word[self.word2id[self.word_vec.index2word[i]]])
 
         for idx,item in enumerate(dataset):
             #padding
             for i,value in enumerate(item):
                 if i < self.max_length:
-                    if i in self.word2id:
-                        self.data_word[idx][i] = value
+                    if value in self.word2id:
+                        self.data_word[idx][i] = self.word2id[value]
                     else:
-                        self.data_word[idx][i] = self.word_vec.vectors.shape[0]
+                        self.data_word[idx][i] = 0
             for i in range(i+1,self.max_length):
                 self.data_word[idx][i] = self.word_vec.vectors.shape[0] + 1
             self.data_length[i] = len(item)
-        self.word2id = {}
-        self.word_dic()
-        base_path = '../data/processed_data'
+
+        base_path = 'data/processed_data'
         np.save(os.path.join(base_path,prefix+'_sen.npy'),self.data_word)
+        np.save(os.path.join(base_path,'weight.npy'), self.data_word)
         np.save(os.path.join(base_path, prefix + '_length.npy'), self.data_length)
         json.dump(self.rel2scope, open(os.path.join(base_path, prefix + '_rel2scope.json'), 'w'))
         json.dump(self.word2id, open(os.path.join(base_path, 'word.json'), 'w'))
 
     def _load_processed_file(self,prefix):
-        base_path = '../data/processed_data'
+        print('loading data')
+        base_path = 'data/processed_data'
         if not os.path.isdir(base_path):
             False
         sentence_file_name = os.path.join(base_path,prefix + '_sen.py')
